@@ -1,17 +1,24 @@
 {
-  "amount_mean": 49538.0155542,
-  "amount_std": 28551.874003822944,
-  "anomaly_rate": 0.055,
+  "amount_mean": 834.12788315,
+  "amount_std": 1355.7685219617345,
+  "anomaly_rate": 0.053125,
   "total": 200000,
-  "n_anomalous": 11000,
-  "night_rate": 0.08456456456456457,
-  "high_risk_n": 4021,
+  "n_anomalous": 10625,
+  "night_rate": 0.06592192192192192,
+  "high_risk_n": 4481,
+  "refund_rate": 0.02857,
+  "anon_rate": 0.12043,
   "features": [
     "Age",
+    "Donor_Since_Days",
+    "Log_Donor_Lifetime_Value",
+    "Is_Recurring",
+    "Is_Anonymous",
+    "Matched_Giving",
+    "Gift_Aid_Eligible",
     "Log_Donation_Amount",
-    "Log_Cumulative_Given",
-    "Amt_Bal_Ratio",
-    "Amount_Zscore",
+    "Donation_Amount_Zscore",
+    "Amt_LTV_Ratio",
     "Hour",
     "Is_Night_Donation",
     "Is_Weekend",
@@ -19,34 +26,110 @@
     "Is_Round_Amount",
     "Near_Threshold",
     "High_Risk_Platform",
-    "Is_Transfer",
-    "Is_Withdrawal",
-    "Is_Business_Account",
-    "Low_Balance_Large_Gift",
-    "Young_Large",
+    "Is_Cold_Acquisition",
+    "Is_Bank_Transfer",
+    "Is_Refund_Type",
+    "CVV_Failed",
+    "Device_Flagged",
+    "Webhook_Chargeback",
+    "Webhook_Reversed",
+    "Refund_Requested",
+    "Is_First_Time_Large",
+    "Is_Anon_Large",
+    "Is_Corporate_Night",
+    "Matched_Anon_Flag",
+    "IP_Country_Match",
+    "Is_VPN_Or_Proxy",
+    "IP_Velocity_24h",
+    "IP_Mismatch_Large",
+    "VPN_Anon_Flag",
+    "High_Velocity_Flag",
     "Gender",
-    "Region",
-    "Donation_Channel",
+    "Donor_Country",
+    "Donor_Segment",
+    "Donation_Frequency",
     "Donation_Type",
-    "Campaign_Category",
-    "Device_Type",
-    "Currency"
+    "Donation_Platform",
+    "Payment_Processor",
+    "Campaign_ID",
+    "Acquisition_Channel",
+    "Currency",
+    "CVV_Check",
+    "Device_Fingerprint",
+    "Webhook_Event"
   ],
   "cat_encode": [
     "Gender",
-    "Region",
-    "Donation_Channel",
+    "Donor_Country",
+    "Donor_Segment",
+    "Donation_Frequency",
     "Donation_Type",
-    "Campaign_Category",
-    "Device_Type",
-    "Currency"
+    "Donation_Platform",
+    "Payment_Processor",
+    "Campaign_ID",
+    "Acquisition_Channel",
+    "Currency",
+    "CVV_Check",
+    "Device_Fingerprint",
+    "Webhook_Event"
   ],
-  "amt_p75": 74314.625,
-  "bal_p10": 14531.716,
+  "amt_p75": 871.3325,
+  "amt_p90": 1134.05,
+  "ltv_p10": 167.9,
   "structuring_thresholds": [
-    50000,
-    75000,
-    90000,
-    99000
+    500,
+    750,
+    900,
+    950
+  ],
+  "high_risk_platforms": [
+    "Virtual Card",
+    "QR Code",
+    "Voice Assistant",
+    "Chatbot",
+    "Wearable",
+    "Biometric"
+  ],
+  "ip_mismatch_rate": 0.191945,
+  "vpn_rate": 0.096875,
+  "high_velocity_rate": 0.093685,
+  "opt_thresholds": {
+    "Random Forest": 0.7891,
+    "Logistic Regression": 0.4695,
+    "Isolation Forest": 0.553
+  },
+  "campaigns": [
+    {
+      "id": "SC-2024-EMG",
+      "name": "Syria Emergency Appeal 2024"
+    },
+    {
+      "id": "SC-2024-WIN",
+      "name": "Winter Appeal 2024"
+    },
+    {
+      "id": "SC-2024-EDU",
+      "name": "Education Fund 2024"
+    },
+    {
+      "id": "SC-2024-MED",
+      "name": "Medical Supplies Appeal"
+    },
+    {
+      "id": "SC-2024-REF",
+      "name": "Refugee Support Programme"
+    },
+    {
+      "id": "SC-2023-EMG",
+      "name": "Syria Emergency Appeal 2023"
+    },
+    {
+      "id": "SC-2024-RAM",
+      "name": "Ramadan Appeal 2024"
+    },
+    {
+      "id": "SC-2024-MAT",
+      "name": "Matched Giving December"
+    }
   ]
 }
