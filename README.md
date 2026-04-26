@@ -23,7 +23,7 @@ A compliance tool for detecting anomalous or potentially bad-actor donations in 
 
 ## Overview
 
-This system was built to detect suspicious donation patterns for the Syria Campaign — flagging potential money laundering via charity, structuring, pass-through accounts, and other compliance risks. It uses the [LOL Bank Pvt. Ltd. Kaggle dataset](https://www.kaggle.com/datasets/valakhorasani/bank-transaction-dataset-for-fraud-detection) as its data source, remapped to a donation domain vocabulary.
+This system was built to detect suspicious donation patterns for the Syria Campaign — flagging potential money laundering via charity, structuring, pass-through accounts, and other compliance risks. It uses the [LOL Bank Pvt. Ltd. Kaggle dataset](https://www.kaggle.com/datasets/marusagar/bank-transaction-fraud-detection) as its data source, remapped to a donation domain vocabulary.
 
 The pipeline is three scripts run in order:
 
@@ -232,6 +232,6 @@ Streamlit dashboard. All computation is pre-cached — the app only loads artifa
 
 ## Dataset Credit
 
-**Bank Transaction Fraud Detection** — LOL Bank Pvt. Ltd. ([Kaggle](https://www.kaggle.com/datasets/valakhorasani/bank-transaction-dataset-for-fraud-detection)). 200,000 rows, 24 columns.
+**Bank Transaction Fraud Detection** — LOL Bank Pvt. Ltd. ([Kaggle](https://www.kaggle.com/datasets/marusagar/bank-transaction-fraud-detection)). 200,000 rows, 24 columns.
 
 The original `Is_Fraud` labels are randomly assigned and carry no predictive signal. This project replaces them via `generate_labels.py`. See [The Label Problem](#️-the-label-problem) for the full diagnostic.
