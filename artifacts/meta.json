@@ -1,0 +1,52 @@
+{
+  "amount_mean": 49538.0155542,
+  "amount_std": 28551.874003822944,
+  "anomaly_rate": 0.055,
+  "total": 200000,
+  "n_anomalous": 11000,
+  "night_rate": 0.08456456456456457,
+  "high_risk_n": 4021,
+  "features": [
+    "Age",
+    "Log_Donation_Amount",
+    "Log_Cumulative_Given",
+    "Amt_Bal_Ratio",
+    "Amount_Zscore",
+    "Hour",
+    "Is_Night_Donation",
+    "Is_Weekend",
+    "Is_Business_Hours",
+    "Is_Round_Amount",
+    "Near_Threshold",
+    "High_Risk_Platform",
+    "Is_Transfer",
+    "Is_Withdrawal",
+    "Is_Business_Account",
+    "Low_Balance_Large_Gift",
+    "Young_Large",
+    "Gender",
+    "Region",
+    "Donation_Channel",
+    "Donation_Type",
+    "Campaign_Category",
+    "Device_Type",
+    "Currency"
+  ],
+  "cat_encode": [
+    "Gender",
+    "Region",
+    "Donation_Channel",
+    "Donation_Type",
+    "Campaign_Category",
+    "Device_Type",
+    "Currency"
+  ],
+  "amt_p75": 74314.625,
+  "bal_p10": 14531.716,
+  "structuring_thresholds": [
+    50000,
+    75000,
+    90000,
+    99000
+  ]
+}
