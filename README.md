@@ -11,6 +11,7 @@ Built on a reshaped financial transaction dataset with domain-specific feature e
 ## Table of Contents
 
 - [Overview](#overview)
+- [Why This Matters — The Market Gap](#why-this-matters--the-market-gap)
 - [Quickstart](#quickstart)
 - [Project Structure](#project-structure)
 - [The Label Problem](#️-the-label-problem)
@@ -53,6 +54,28 @@ The pipeline runs in four steps:
 | `generate_labels.py` | Builds realistic compliance labels | Once, after reshape |
 | `prepare.py` | Trains models, writes `artifacts/` | Once, or when retraining |
 | `app.py` | Streamlit compliance dashboard | Any time |
+
+---
+
+## Why This Matters — The Market Gap
+
+Nonprofits and charities are significant targets for financial crime. The UK's Charity Commission and HMRC both impose Anti-Money Laundering (AML) obligations on charitable organisations, and the FATF (Financial Action Task Force) explicitly identifies the nonprofit sector as vulnerable to terrorist financing and sanctions evasion. Despite this, the compliance tooling available to most nonprofits ranges from inadequate to nonexistent.
+
+**What exists today:**
+
+- **Generic payment fraud tools** (Stripe Radar, PayPal fraud detection) — handle card-level fraud well but have no nonprofit-specific logic. They don't understand donation context: Gift Aid, recurring giving, campaign clustering, anonymous donations, or the difference between a £50,000 major gift and a £50,000 structured payment.
+- **Enterprise AML platforms** (ComplyAdvantage, Hawk AI, Unit21) — built for banks and fintechs, priced accordingly. A mid-sized charity cannot justify £50,000+/year for transaction monitoring software.
+- **Manual processes** — the reality for most small and mid-sized nonprofits. A spreadsheet, an occasional OFAC PDF check, and a compliance officer who also does three other jobs.
+
+**The gap:**
+
+No purpose-built, accessible compliance tool exists for the nonprofit sector that combines donation behavioural analysis, sanctions screening, banking partner signals, and explainable risk scoring in a single platform. The specific threat vectors that matter for charities — layering via refund requests, pass-through accounts posing as major donors, coordinated structuring across campaigns, Gift Aid abuse — are invisible to generic fraud tools.
+
+**Why it's growing:**
+
+Regulatory pressure on nonprofits is increasing. The UK's Economic Crime and Corporate Transparency Act (2023), updated Charity Commission AML guidance, and post-2022 sanctions enforcement around Russia and Belarus have all raised the bar for what "adequate" compliance looks like. Smaller organisations that previously flew under the radar are now expected to demonstrate proportionate controls — and most have nothing to show.
+
+DonorGuard is a proof-of-concept for what purpose-built nonprofit compliance tooling could look like: sector-aware, explainable, and accessible without an enterprise contract.
 
 ---
 
