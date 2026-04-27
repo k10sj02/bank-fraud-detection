@@ -1,8 +1,8 @@
 """
-generate_labels.py  —  Syria Campaign · Realistic Fraud Label Generation
+generate_labels.py  —  DonorGuard · Realistic Fraud Label Generation
 
 Generates compliance-grounded fraud labels for the reshaped nonprofit
-donation dataset. Designed for Donations_Syria_Campaign.csv produced by
+donation dataset. Designed for Donations_DonorGuard.csv produced by
 reshape_dataset.py.
 
 Rules exploit the full nonprofit schema — including the new columns
@@ -16,8 +16,8 @@ Run order:
     3. uv run python prepare.py
     4. uv run streamlit run app.py
 
-Input:  Donations_Syria_Campaign.csv
-Output: Donations_Syria_Campaign_Labeled.csv
+Input:  Donations_DonorGuard.csv
+Output: Donations_DonorGuard_Labeled.csv
 """
 
 import numpy as np
@@ -27,8 +27,8 @@ RANDOM_STATE     = 42
 TARGET_FRAUD_RATE = 0.055
 rng = np.random.default_rng(RANDOM_STATE)
 
-INPUT_CSV  = "Donations_Syria_Campaign.csv"
-OUTPUT_CSV = "Donations_Syria_Campaign_Labeled.csv"
+INPUT_CSV  = "Donations_DonorGuard.csv"
+OUTPUT_CSV = "Donations_DonorGuard_Labeled.csv"
 
 print("Loading reshaped dataset…")
 df = pd.read_csv(INPUT_CSV)

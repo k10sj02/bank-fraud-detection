@@ -1,8 +1,8 @@
 """
-reshape_dataset.py  —  Syria Campaign · Dataset Reshaping
+reshape_dataset.py  —  DonorGuard · Dataset Reshaping
 
-Transforms the LOL Bank transaction dataset into a realistic nonprofit
-donation dataset. Run this BEFORE generate_labels.py.
+Transforms a synthetic bank transaction dataset into a realistic nonprofit
+donation dataset suitable for training DonorGuard's compliance models. Run this BEFORE generate_labels.py.
 
 Pipeline order:
     1. uv run python reshape_dataset.py
@@ -11,7 +11,7 @@ Pipeline order:
     4. uv run streamlit run app.py
 
 Input:  Bank_Transaction_Fraud_Detection.csv
-Output: Donations_Syria_Campaign.csv
+Output: Donations_DonorGuard.csv
 """
 
 import numpy as np
@@ -21,7 +21,7 @@ RANDOM_STATE = 42
 rng = np.random.default_rng(RANDOM_STATE)
 
 INPUT_CSV  = "Bank_Transaction_Fraud_Detection.csv"
-OUTPUT_CSV = "Donations_Syria_Campaign.csv"
+OUTPUT_CSV = "Donations_DonorGuard.csv"
 
 # ── 1. Load ───────────────────────────────────────────────────────────────────
 print("Loading raw dataset…")
@@ -33,7 +33,7 @@ print(f"  {n:,} rows, {df.shape[1]} columns")
 print("Dropping bank-specific columns…")
 DROP_COLS = [
     "Bank_Branch",        # branches don't exist in nonprofits
-    "Merchant_ID",        # there's only one merchant (the campaign)
+    "Merchant_ID",        # there's only one merchant (the nonprofit)
     "Merchant_Category",  # Restaurant/Electronics/Groceries — wrong domain
     "Transaction_Description",  # taxi fares, laundry etc.
     "Customer_Contact",   # not useful for fraud detection
@@ -63,13 +63,13 @@ RENAME = {
 df = df.rename(columns=RENAME)
 
 # ── 4. Remap geography to international donor base ────────────────────────────
-# Syria Campaign donors are predominantly UK, US, EU, Gulf, and diaspora communities.
+# DonorGuard donors are predominantly UK, US, EU, Gulf, and diaspora communities.
 # Map Indian states to realistic donor geographies weighted by campaign's actual
 # supporter base profile.
 print("Remapping geography to international donor base…")
 
 REGION_MAP = {
-    # UK regions (largest donor base for Syria Campaign)
+    # UK regions (largest donor base for DonorGuard)
     "Nagaland":           "London, UK",
     "Meghalaya":          "Manchester, UK",
     "Uttar Pradesh":      "Birmingham, UK",
@@ -89,7 +89,7 @@ REGION_MAP = {
     "Kerala":             "San Francisco, US",
     "Andhra Pradesh":     "Seattle, US",
     "Madhya Pradesh":     "Boston, US",
-    # Gulf / MENA (significant Syria Campaign donors)
+    # Gulf / MENA (significant DonorGuard donors)
     "Goa":                "Dubai, UAE",
     "Odisha":             "Abu Dhabi, UAE",
     "Assam":              "Doha, Qatar",
@@ -234,12 +234,12 @@ df["Payment_Processor"] = df["Donation_Platform"].map(PROCESSOR_BY_PLATFORM).fil
 print("Generating campaign IDs…")
 
 CAMPAIGNS = [
-    ("SC-2024-EMG", "Syria Emergency Appeal 2024",     0.28),
+    ("SC-2024-EMG", "Emergency Relief Fund 2024",     0.28),
     ("SC-2024-WIN", "Winter Appeal 2024",               0.18),
     ("SC-2024-EDU", "Education Fund 2024",              0.14),
     ("SC-2024-MED", "Medical Supplies Appeal",          0.12),
     ("SC-2024-REF", "Refugee Support Programme",        0.10),
-    ("SC-2023-EMG", "Syria Emergency Appeal 2023",      0.08),
+    ("SC-2023-EMG", "Emergency Relief Fund 2023",      0.08),
     ("SC-2024-RAM", "Ramadan Appeal 2024",               0.06),
     ("SC-2024-MAT", "Matched Giving December",          0.04),
 ]
@@ -370,60 +370,84 @@ df["Webhook_Event"] = np.where(
 
 
 # ── 22. Generate IP-derived features ─────────────────────────────────────────
+# IMPORTANT: IP features are generated with ONLY plausible ambient correlations
+# to donor behaviour (anonymity preference, platform choice). They must NOT be
+# conditioned on CVV_Check, Device_Fingerprint, or other fraud-label inputs —
+# doing so creates circular dependency that inflates AUC by letting the model
+# memorise the generative process rather than learning real patterns.
+# The model will discover the IP × CVV interaction from the label rules;
+# we should not pre-encode it in the features.
 print("Generating IP-derived features…")
 
 # ── IP_Country_Match ──────────────────────────────────────────────────────────
-# Probability that IP country matches stated donor country.
-# Mismatches are more likely for anonymous donors, high-risk platforms,
-# failed CVV, and known flagged devices.
-mismatch_prob = np.full(n, 0.08)
-mismatch_prob[df["Is_Anonymous"] == 1]                                       += 0.15
+# Baseline: ~10% of donors have an IP country mismatch in a real campaign.
+# Plausible drivers (not fraud-label inputs):
+#   - Anonymous donors are more likely to use privacy tools → higher mismatch
+#   - Virtual Card / QR Code users tend toward more digital-native behaviour
+#   - First-time donors have less established location history
+#   - Gulf and international donors sometimes route through regional proxies
+mismatch_prob = np.full(n, 0.10)
+mismatch_prob[df["Is_Anonymous"] == 1]                          += 0.08
 mismatch_prob[df["Donation_Platform"].isin(
-    ["Virtual Card", "QR Code", "Chatbot", "Voice Assistant"])]              += 0.12
-mismatch_prob[df["Donation_Frequency"] == "First-time"]                      += 0.05
-mismatch_prob[df["Refund_Requested"] == 1]                                   += 0.10
-mismatch_prob[df["CVV_Check"] == "Fail"]                                     += 0.12
-mismatch_prob[df["Device_Fingerprint"] == "Known Flagged"]                   += 0.18
-mismatch_prob = np.clip(mismatch_prob, 0, 0.95)
+    ["Virtual Card", "QR Code"])]                               += 0.06
+mismatch_prob[df["Donation_Frequency"] == "First-time"]         += 0.03
+mismatch_prob[df["Donor_Country"].isin(
+    ["UAE", "Qatar", "Kuwait", "Saudi Arabia", "Jordan"])]      += 0.05
+mismatch_prob = np.clip(mismatch_prob, 0, 0.40)  # hard cap — avoids extreme values
 
 ip_mismatch = rng.random(n) < mismatch_prob
 df["IP_Country_Match"] = (~ip_mismatch).astype(int)
 
 # ── Is_VPN_Or_Proxy ───────────────────────────────────────────────────────────
-# VPN/proxy usage probability. Correlated with mismatch and platform.
-# In production this comes from MaxMind GeoIP2 or IPQualityScore API.
-vpn_prob = np.full(n, 0.04)
-vpn_prob[ip_mismatch]                                                         += 0.20
-vpn_prob[df["Is_Anonymous"] == 1]                                             += 0.12
-vpn_prob[df["Donation_Platform"].isin(["Virtual Card", "Chatbot"])]           += 0.10
-vpn_prob[df["Device_Fingerprint"] == "Known Flagged"]                         += 0.15
-vpn_prob = np.clip(vpn_prob, 0, 0.95)
+# Baseline: ~6% VPN usage across a global donor base (realistic for 2024).
+# Plausible drivers only:
+#   - IP mismatch donors are more likely VPN users (causal, not circular)
+#   - Anonymous donors are more privacy-conscious
+#   - Virtual card / chatbot platforms attract more tech-savvy / privacy-conscious users
+# NOT conditioned on CVV or Device_Fingerprint.
+vpn_prob = np.full(n, 0.06)
+vpn_prob[ip_mismatch]                                            += 0.12
+vpn_prob[df["Is_Anonymous"] == 1]                               += 0.07
+vpn_prob[df["Donation_Platform"].isin(["Virtual Card", "Chatbot"])] += 0.05
+vpn_prob = np.clip(vpn_prob, 0, 0.40)
 
 df["Is_VPN_Or_Proxy"] = (rng.random(n) < vpn_prob).astype(int)
 
-# Force consistency: VPN users are mismatched ~80% of the time
+# Enforce internal consistency: VPN users are mismatched ~65% of the time
+# (lower than before — not all VPN users are hiding their country)
 vpn_mask = df["Is_VPN_Or_Proxy"] == 1
-df.loc[vpn_mask & (rng.random(n) < 0.80), "IP_Country_Match"] = 0
+df.loc[vpn_mask & (rng.random(n) < 0.65), "IP_Country_Match"] = 0
 
 # ── IP_Velocity_24h ───────────────────────────────────────────────────────────
-# Donations from the same IP in the past 24 hours.
-# High velocity (3+) indicates card testing or coordinated attack.
-# Simulated from risk signals; in production this is a real-time counter.
+# Baseline: almost all donors submit exactly 1 donation per IP per day.
+# Plausible elevation drivers (not fraud-label inputs):
+#   - Repeat/regular donors who give on multiple campaigns same day
+#   - Corporate donors submitting matched gifts in bulk
+#   - Platform type: campaign websites see higher multi-submit rates
+# NOT conditioned on CVV_Check or Device_Fingerprint.
 velocity = np.ones(n, dtype=int)
 
-high_risk_mask = (
-    (df["CVV_Check"] == "Fail") |
-    (df["Device_Fingerprint"] == "Known Flagged") |
-    (df["Is_VPN_Or_Proxy"] == 1)
+# Regular donors occasionally give to multiple campaigns in one day
+multi_campaign = (df["Donation_Frequency"] == "Regular") & (rng.random(n) < 0.08)
+velocity[multi_campaign] = rng.integers(2, 4, size=multi_campaign.sum())
+
+# Corporate segment sometimes submits batch donations
+corporate_batch = (df["Donor_Segment"] == "Corporate") & (rng.random(n) < 0.06)
+velocity[corporate_batch] = rng.integers(2, 5, size=corporate_batch.sum())
+
+# Small ambient noise: shared IPs (offices, university networks, etc.)
+ambient = (rng.random(n) < 0.04) & ~multi_campaign & ~corporate_batch
+velocity[ambient] = 2
+
+# Card-testing pattern: independent of fraud-label features — modelled as
+# a small population (~1%) of genuinely anomalous IP clusters in the data.
+# This is the signal the model should *discover*, not be handed.
+card_testing_ips = rng.random(n) < 0.01
+velocity[card_testing_ips] = rng.choice(
+    [3, 4, 5, 8, 12, 20],
+    size=card_testing_ips.sum(),
+    p=[0.35, 0.25, 0.18, 0.12, 0.07, 0.03],
 )
-velocity[high_risk_mask] = rng.choice(
-    [1, 2, 3, 4, 5, 8, 12, 20],
-    size=high_risk_mask.sum(),
-    p=[0.30, 0.20, 0.15, 0.12, 0.10, 0.07, 0.04, 0.02],
-)
-# Occasional velocity bumps for normal donors (shared office IPs etc.)
-normal_bump = (rng.random(n) < 0.05) & ~high_risk_mask
-velocity[normal_bump] = rng.integers(2, 4, size=normal_bump.sum())
 
 df["IP_Velocity_24h"] = velocity
 

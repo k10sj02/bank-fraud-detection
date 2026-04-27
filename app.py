@@ -1,5 +1,5 @@
 """
-app.py  —  Syria Campaign · Donation Anomaly Detection
+app.py  —  DonorGuard · Donation Anomaly Detection
 Requires artifacts/ produced by:  uv run python prepare.py
 Run:  uv run streamlit run app.py
 """
@@ -9,6 +9,11 @@ import json
 from pathlib import Path
 
 import joblib
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,7 +28,7 @@ from watchman import (
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Syria Campaign · Anomaly Detection",
+    page_title="DonorGuard · Donation Anomaly Detection",
     page_icon="🔍",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -140,22 +145,30 @@ def section_label(text):
 def load_artifacts():
     if not ARTIFACTS.exists():
         return None
-    return {
-        "rf":          joblib.load(ARTIFACTS / "rf_model.joblib"),
-        "lr":          joblib.load(ARTIFACTS / "lr_model.joblib"),
-        "iso":         joblib.load(ARTIFACTS / "iso_model.joblib"),
-        "scaler":      joblib.load(ARTIFACTS / "scaler.joblib"),
-        "encoders":    joblib.load(ARTIFACTS / "encoders.joblib"),
-        "importances": joblib.load(ARTIFACTS / "importances.joblib"),
+    d = {
+        "rf":             joblib.load(ARTIFACTS / "rf_model.joblib"),
+        "lr":             joblib.load(ARTIFACTS / "lr_model.joblib"),
+        "iso":            joblib.load(ARTIFACTS / "iso_model.joblib"),
+        "scaler":         joblib.load(ARTIFACTS / "scaler.joblib"),
+        "encoders":       joblib.load(ARTIFACTS / "encoders.joblib"),
+        "importances":    joblib.load(ARTIFACTS / "importances.joblib"),
     }
+    shap_path = ARTIFACTS / "shap_explainer.joblib"
+    if shap_path.exists():
+        d["shap_explainer"] = joblib.load(shap_path)
+    return d
 
 @st.cache_data(show_spinner=False)
 def load_data():
-    risk_df = pd.read_parquet(ARTIFACTS / "risk_df.parquet")
-    eda_df  = pd.read_parquet(ARTIFACTS / "eda_cache.parquet")
-    metrics = json.loads((ARTIFACTS / "metrics.json").read_text())
-    meta    = json.loads((ARTIFACTS / "meta.json").read_text())
-    return risk_df, eda_df, metrics, meta
+    risk_df   = pd.read_parquet(ARTIFACTS / "risk_df.parquet")
+    eda_df    = pd.read_parquet(ARTIFACTS / "eda_cache.parquet")
+    metrics   = json.loads((ARTIFACTS / "metrics.json").read_text())
+    meta      = json.loads((ARTIFACTS / "meta.json").read_text())
+    shap_vals = None
+    shap_path = ARTIFACTS / "shap_values.parquet"
+    if shap_path.exists():
+        shap_vals = pd.read_parquet(shap_path)
+    return risk_df, eda_df, metrics, meta, shap_vals
 
 # ── Confusion matrix ──────────────────────────────────────────────────────────
 def confusion_matrix_fig(cm, title):
@@ -191,7 +204,7 @@ if arts is None and page == "📊  Dashboard":
     st.stop()
 
 if arts is not None:
-    risk_df, eda_df, metrics, meta = load_data()
+    risk_df, eda_df, metrics, meta, shap_vals = load_data()
     rf          = arts["rf"]
     importances = arts["importances"]
     avg         = meta["anomaly_rate"]
@@ -206,7 +219,7 @@ if arts is not None:
 # SIDEBAR — PAGE NAVIGATION
 # ═══════════════════════════════════════════════════════════════════════════════
 with st.sidebar:
-    st.markdown("## Syria Campaign")
+    st.markdown("## DonorGuard")
     st.markdown("## Navigate")
     page = st.radio(
         "Page",
@@ -299,7 +312,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown(
         '<div style="font-size:0.65rem;color:#44475a;line-height:1.9;">'
-        'Syria Campaign · Anomaly Detection<br>'
+        'DonorGuard · Donation Compliance Platform<br>'
         'Run <code style="background:#222;padding:1px 5px;border-radius:2px;">'
         'python prepare.py</code> to retrain.</div>',
         unsafe_allow_html=True,
@@ -311,32 +324,28 @@ with st.sidebar:
 # PAGE 1 — CONTEXT
 # ═══════════════════════════════════════════════════════════════════════════════
 if page == "🏠  Context":
-    st.markdown("# Syria Campaign")
+    st.markdown("# DonorGuard")
     st.markdown(
         f'<p style="font-family:\'DM Mono\',monospace;font-size:0.75rem;color:{MUTED};'
-        f'letter-spacing:0.14em;margin-top:-10px;">DONATION ANOMALY DETECTION · CONTEXT & GUIDE</p>',
+        f'letter-spacing:0.14em;margin-top:-10px;">DONATION COMPLIANCE PLATFORM · PRODUCT GUIDE</p>',
         unsafe_allow_html=True)
 
     st.markdown("## What is this tool?")
     st.markdown("""
-This dashboard helps the Syria Campaign's compliance team **identify donations that may be
-coming from bad actors** — including money launderers, sanctioned entities, and individuals
-attempting to exploit the charity for financial crime.
+**DonorGuard** is a real-time donation compliance platform built for nonprofits and charitable organisations. It helps your compliance team **identify donations that may be coming from bad actors** — including money launderers, sanctioned entities, and individuals attempting to exploit your organisation for financial crime.
 
-It analyses donation patterns and flags anything that deviates significantly from what a
-normal, legitimate donor looks like. Flagged donations are ranked by risk tier so your team
-can focus their review time where it matters most.
+DonorGuard analyses behavioural patterns across every donation and flags anything that deviates significantly from what a legitimate donor looks like. Flagged donations are scored and tiered so your team can focus review time where it matters most, without blocking genuine supporters.
     """)
 
     st.markdown("## Who is it for?")
     col1, col2, col3 = st.columns(3)
     for col, title, desc in [
         (col1, "👩‍💼 Compliance Officers",
-         "Review flagged donations in the Risk Triage Queue and decide whether to accept, escalate, or reject."),
+         "Review flagged donations in the Risk Triage Queue. DonorGuard provides the rationale — you make the call on whether to accept, escalate, or reject."),
         (col2, "📋 Finance Team",
-         "Monitor overall donation health, spot emerging risk patterns, and report to regulators."),
+         "Monitor overall donation health, spot emerging risk patterns by campaign or channel, and maintain audit-ready records for regulators and trustees."),
         (col3, "🔬 Data & Tech Team",
-         "Retrain models, tune thresholds, and extend compliance rules as new threat patterns emerge."),
+         "Retrain models as new threat patterns emerge, tune thresholds per campaign type, and extend compliance rules without rebuilding the pipeline."),
     ]:
         col.markdown(
             f'<div style="background:{PANEL};border:1px solid {RULE};border-top:3px solid {PURPLE};'
@@ -425,7 +434,7 @@ can focus their review time where it matters most.
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("## What threats does it detect?")
     threats = [
-        ("💸 Money Laundering via Charity",
+        ("💸 Money Laundering via Nonprofit",
          "Large donations — especially round numbers — that are quickly followed by refund requests or withdrawals. Criminals use charities to 'clean' dirty money by donating it and requesting receipts."),
         ("🏦 Pass-Through Accounts",
          "Donors whose account balance is very low relative to their donation size. This suggests funds were deposited specifically to make this donation — a classic money-mule pattern."),
@@ -438,9 +447,9 @@ can focus their review time where it matters most.
         ("👤 Recruited Mules",
          "Young donors (under 25) making very large donations disproportionate to typical income for that age group. May indicate individuals recruited to move money on someone else's behalf."),
         ("↩️ Chargeback Abuse",
-         "A donor makes a large donation, receives a receipt or tax benefit, then files a chargeback with their bank to reclaim the funds. The charity loses the money but the donor retains the documentation. Combined with high anomaly scores, chargebacks are a strong indicator of deliberate exploitation."),
+         "A donor makes a large donation, receives a receipt or tax benefit, then files a chargeback with their bank to reclaim the funds. Your organisation loses the funds but the donor retains the documentation. Combined with high anomaly scores, chargebacks are a strong indicator of deliberate exploitation."),
         ("🃏 Card Testing",
-         "Fraudsters use charity donation forms to validate stolen card numbers by making a rapid series of small donations. Indicators include multiple declined attempts from the same device or IP, or many round-number micro-donations in quick succession."),
+         "Fraudsters use a nonprofit's donation form to validate stolen card numbers by making a rapid series of small donations. Indicators include multiple declined attempts from the same device or IP, or many round-number micro-donations in quick succession."),
     ]
     for title, desc in threats:
         st.markdown(
@@ -486,12 +495,12 @@ can focus their review time where it matters most.
 
     st.markdown("## Important Caveats")
     st.warning("""
-**This tool is an aid to human decision-making, not a replacement for it.**
+**DonorGuard is a decision-support tool, not an automated enforcement system.**
 
-- The anomaly labels are based on compliance rules, not verified real-world cases. A High or Critical score means *investigate*, not *block*.
-- Always cross-reference flagged donors against your sanctions list (OFAC, UN) as a separate step.
-- Donors incorrectly flagged should have access to a clear appeals process.
-- Models should be retrained monthly as new patterns emerge.
+- Anomaly scores are based on behavioural patterns and compliance rules, not verified case outcomes. A High or Critical score means *investigate*, not *block automatically*.
+- Watchman handles name-based sanctions screening, but is not a substitute for full KYC on large or complex gifts.
+- Every flagged donor should have access to a clear appeals process — being incorrectly flagged is a serious matter for a genuine supporter.
+- Retrain models quarterly or whenever your fraud patterns change significantly.
     """)
 
 
@@ -504,10 +513,10 @@ elif page == "📊  Dashboard":
     # Header
     hc1, hc2 = st.columns([3, 1])
     with hc1:
-        st.markdown("# Syria Campaign")
+        st.markdown("# DonorGuard")
         st.markdown(
             f'<p style="font-family:\'DM Mono\',monospace;font-size:0.75rem;color:{MUTED};'
-            f'letter-spacing:0.14em;margin-top:-10px;">DONATION ANOMALY DETECTION · COMPLIANCE DASHBOARD</p>',
+            f'letter-spacing:0.14em;margin-top:-10px;">DONATION COMPLIANCE PLATFORM · ANOMALY DETECTION & RISK TRIAGE</p>',
             unsafe_allow_html=True)
     with hc2:
         st.markdown("<br>", unsafe_allow_html=True)
@@ -616,8 +625,8 @@ The **threshold slider** in the sidebar moves your operating point along this cu
 
     # ── EDA Tabs ──────────────────────────────────────────────────────────────
     st.markdown("## Exploratory Analysis")
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "💰  Amounts", "📅  Temporal", "🗺️  Geography", "🏷️  Categories", "🔬  Features",
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "💰  Amounts", "📅  Temporal", "🗺️  Geography", "🏷️  Categories", "🔬  Features", "🧠  SHAP",
     ])
 
     with tab1:
@@ -794,6 +803,73 @@ The **threshold slider** in the sidebar moves your operating point along this cu
             f"to add more targeted compliance rules.",
             level="info"
         )
+
+    with tab6:
+        if shap_vals is None:
+            st.info("SHAP values not found. Re-run `prepare.py` to generate them.")
+        else:
+            feat_names = meta["features"]
+            mean_abs_shap = shap_vals.abs().mean().sort_values(ascending=False)
+
+            st.markdown("### Global Feature Impact")
+            st.markdown(
+                f'<p style="font-size:0.84rem;color:{SLATE};line-height:1.6;margin-bottom:1rem;">'                f'Mean absolute SHAP value across 500 test donations — how much each feature '                f'shifts the model anomaly score on average. Higher = more influential.</p>',
+                unsafe_allow_html=True,
+            )
+
+            # SHAP summary bar chart
+            fig, ax = plt.subplots(figsize=(9, 8))
+            fig.patch.set_facecolor(PANEL); ax.set_facecolor(PANEL)
+            top_n = 20
+            top_feats = mean_abs_shap.head(top_n)
+            colors = [PURPLE if i < 5 else (SLATE if i < 10 else MUTED)
+                      for i in range(len(top_feats))]
+            ax.barh(top_feats.index[::-1], top_feats.values[::-1],
+                    color=colors[::-1], alpha=0.82, height=0.65)
+            for i, (feat, val) in enumerate(top_feats.head(5).items()):
+                ax.text(val + 0.0002, len(top_feats) - 1 - i,
+                        f"{val:.4f}", va="center", fontsize=7.5,
+                        color=PURPLE, fontfamily="monospace")
+            ax.set_title("Top 20 Features by Mean |SHAP Value|")
+            ax.set_xlabel("Mean |SHAP value| (impact on anomaly score)")
+            ax.grid(True, axis="x"); ax.spines["bottom"].set_visible(True)
+            ax.legend(handles=[
+                mpatches.Patch(color=PURPLE, alpha=0.82, label="Top 5"),
+                mpatches.Patch(color=SLATE,  alpha=0.82, label="6–10"),
+                mpatches.Patch(color=MUTED,  alpha=0.82, label="Rest"),
+            ], frameon=False, fontsize=8)
+            plt.tight_layout()
+            show_fig(fig)
+
+            insight(
+                f"<strong>{mean_abs_shap.index[0].replace('_', ' ')}</strong> is the most "
+                f"influential feature (mean |SHAP| = {mean_abs_shap.iloc[0]:.4f}), followed by "
+                f"<strong>{mean_abs_shap.index[1].replace('_', ' ')}</strong> and "
+                f"<strong>{mean_abs_shap.index[2].replace('_', ' ')}</strong>. "
+                f"Unlike feature importance from the tree structure, SHAP values measure "
+                f"actual contribution to each prediction — positive SHAP = pushes score up "
+                f"(more suspicious), negative SHAP = pushes score down (more legitimate).",
+                level="info"
+            )
+
+            # SHAP direction chart — mean signed SHAP (positive vs negative)
+            st.markdown("### Feature Direction — Does it flag or clear donations?")
+            st.markdown(
+                f'<p style="font-size:0.84rem;color:{SLATE};line-height:1.6;margin-bottom:1rem;">'                f'Mean signed SHAP value — red bars push the anomaly score up (suspicious signal), '                f'blue bars push it down (legitimacy signal).</p>',
+                unsafe_allow_html=True,
+            )
+            mean_signed = shap_vals.mean().reindex(mean_abs_shap.head(top_n).index)
+            fig, ax = plt.subplots(figsize=(9, 8))
+            fig.patch.set_facecolor(PANEL); ax.set_facecolor(PANEL)
+            clrs = [RED if v > 0 else BLUE for v in mean_signed.values[::-1]]
+            ax.barh(mean_signed.index[::-1], mean_signed.values[::-1],
+                    color=clrs, alpha=0.78, height=0.65)
+            ax.axvline(0, color=RULE, lw=1.2)
+            ax.set_title("Mean Signed SHAP — Red = Flags Donations, Blue = Clears Donations")
+            ax.set_xlabel("Mean SHAP value")
+            ax.grid(True, axis="x"); ax.spines["bottom"].set_visible(True)
+            plt.tight_layout()
+            show_fig(fig)
 
     # ── Risk Triage Queue ─────────────────────────────────────────────────────
     st.markdown("## Risk Triage Queue")
@@ -993,10 +1069,10 @@ The **threshold slider** in the sidebar moves your operating point along this cu
 
     # ── Single Donation Scorer ────────────────────────────────────────────────
     st.markdown("## Score a Donation")
-    section_label("Enter details for any donation — scored by Random Forest (fastest for live inference)")
+    section_label("Score any donation — enter details for an instant risk assessment")
     st.markdown(
         f'<p style="font-size:0.8rem;color:{MUTED};">'
-        f'Sanctions are screened first via Watchman — a sanctions match is a hard block regardless of ML score. '
+        f'DonorGuard screens sanctions first via Watchman — a confirmed match is a hard block regardless of anomaly score. '
         f'Demo SDN names for testing: <code>{", ".join(DEMO_SDN_NAMES[:3])}</code></p>',
         unsafe_allow_html=True,
     )
@@ -1009,39 +1085,59 @@ The **threshold slider** in the sidebar moves your operating point along this cu
     amt_p95        = meta["amount_mean"] + 2 * meta["amount_std"]
 
     with st.form("score_form"):
-        fn1, fn2 = st.columns([2, 1])
-        s_name     = fn1.text_input("Donor Name", value="",
-                        placeholder="Enter full name for sanctions screening…",
-                        help="Screened against OFAC SDN, EU, UN, and UK sanctions lists via Watchman.")
-        demo_scorer = fn2.checkbox("Demo mode (SDN name injection)", value=True,
-                        help="Injects a synthetic OFAC hit if you type a known SDN name. Disable with real data.")
 
-        fc1, fc2, fc3, fc4 = st.columns(4)
-        s_amount   = fc1.number_input("Donation Amount (£)", 1.0, 10000.0, 50.0, 10.0)
-        s_balance  = fc2.number_input("Donor Lifetime Value (£)", 0.0, 20000.0, 200.0, 50.0)
-        s_age      = fc3.number_input("Donor Age", 18, 90, 35)
-        s_hour     = fc4.slider("Hour Donated (0 = midnight)", 0, 23, 14)
-        fc5, fc6, fc7, fc8 = st.columns(4)
-        s_platform = fc5.selectbox("Donation Platform",
+        # ── Section 1: Donor identity ─────────────────────────────────────────
+        st.markdown(
+            f'<div style="background:{PANEL};border:1px solid {RULE};border-radius:8px;'
+            f'padding:16px 20px 8px;margin-bottom:12px;">'
+            f'<p style="font-size:0.65rem;font-weight:600;letter-spacing:0.14em;'
+            f'color:{PURPLE};text-transform:uppercase;margin-bottom:12px;">👤 Donor Identity</p>',
+            unsafe_allow_html=True,
+        )
+        fn1, fn2 = st.columns([3, 1])
+        s_name      = fn1.text_input("Donor Name", value="",
+                          placeholder="Enter full name for sanctions screening…",
+                          help="Screened against OFAC SDN, EU, UN, and UK sanctions lists via Watchman.")
+        demo_scorer = fn2.checkbox("Demo mode", value=True,
+                          help="Injects a synthetic OFAC hit if you type a known SDN name. Disable with real data.")
+        d1, d2, d3 = st.columns(3)
+        s_age      = d1.number_input("Donor Age", 18, 90, 35)
+        s_account  = d2.selectbox("Donor Segment", ["Individual", "Corporate", "Major Donor"])
+        s_freq     = d3.selectbox("Donation Frequency",
+            ["First-time", "Occasional", "Regular", "Lapsed"])
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # ── Section 2: Donation details ───────────────────────────────────────
+        st.markdown(
+            f'<div style="background:{PANEL};border:1px solid {RULE};border-radius:8px;'
+            f'padding:16px 20px 8px;margin-bottom:12px;">'
+            f'<p style="font-size:0.65rem;font-weight:600;letter-spacing:0.14em;'
+            f'color:{PURPLE};text-transform:uppercase;margin-bottom:12px;">💷 Donation Details</p>',
+            unsafe_allow_html=True,
+        )
+        da1, da2, da3, da4 = st.columns(4)
+        s_amount    = da1.number_input("Amount (£)", 1.0, 10000.0, 50.0, 10.0)
+        s_balance   = da2.number_input("Donor Lifetime Value (£)", 0.0, 20000.0, 200.0, 50.0)
+        s_platform  = da3.selectbox("Donation Platform",
             ["Campaign Website", "JustGiving", "Mobile App", "Stripe Checkout",
              "Card (Phone)", "Bank Transfer", "Virtual Card", "QR Code",
              "Voice Assistant", "Chatbot", "Wearable"])
-        s_don_type = fc6.selectbox("Donation Type",
+        s_don_type  = da4.selectbox("Donation Type",
             ["Bank Transfer", "Direct Debit", "Card", "Gift", "Refund"])
-        s_account  = fc7.selectbox("Donor Segment", ["Individual", "Corporate", "Major Donor"])
-        s_freq     = fc8.selectbox("Donation Frequency",
-            ["First-time", "Occasional", "Regular", "Lapsed"])
+        da5, da6, da7, da8 = st.columns(4)
+        s_hour      = da5.slider("Hour Donated (0 = midnight)", 0, 23, 14)
+        s_weekend   = da6.checkbox("Weekend donation", value=False)
+        s_anon      = da7.checkbox("Anonymous", value=False)
+        s_matched   = da8.checkbox("Matched giving", value=False)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        fc9, fc10, fc11, fc12 = st.columns(4)
-        s_weekend  = fc9.checkbox("Weekend donation", value=False)
-        s_anon     = fc10.checkbox("Anonymous", value=False)
-        s_matched  = fc11.checkbox("Matched giving", value=False)
-        _          = fc12.empty()
-
+        # ── Section 3: Banking partner & IP signals ───────────────────────────
         st.markdown(
-            f'<p style="font-family:monospace;font-size:0.65rem;color:{MUTED};'
-            f'letter-spacing:0.12em;text-transform:uppercase;margin:12px 0 4px;">'
-            f'Banking Partner & IP Signals</p>',
+            f'<div style="background:#f0edf9;border:1px solid #d8d0f0;border-radius:8px;'
+            f'padding:16px 20px 8px;margin-bottom:16px;">'
+            f'<p style="font-size:0.65rem;font-weight:600;letter-spacing:0.14em;'
+            f'color:{PURPLE};text-transform:uppercase;margin-bottom:12px;">'
+            f'🔌 Banking Partner & IP Signals</p>',
             unsafe_allow_html=True,
         )
         bp1, bp2, bp3 = st.columns(3)
@@ -1053,20 +1149,20 @@ The **threshold slider** in the sidebar moves your operating point along this cu
             help="Device fingerprint status from the payment gateway.")
         s_webhook_event = bp3.selectbox("Webhook Event",
             ["payment.authorised", "payment.reversed", "payment.declined", "chargeback.received"],
-            help="The real-time event type received from the banking partner webhook.")
-
+            help="Real-time event received from the banking partner webhook.")
         ip1, ip2, ip3 = st.columns(3)
         s_ip_match      = ip1.selectbox("IP Country Match",
             ["Match ✅", "Mismatch ⚠️"],
-            help="Does the donor IP geolocation match their stated country? Mismatch may indicate VPN, proxy, or misrepresented location.")
+            help="Does the donor IP geolocation match their stated country?")
         s_vpn           = ip2.selectbox("VPN / Proxy",
             ["Not detected", "Detected ⚠️"],
-            help="Whether the donation IP is a known VPN, proxy, or datacenter range. Detected via MaxMind GeoIP2 or IPQualityScore in production.")
+            help="Whether the donation IP is a known VPN, proxy, or datacenter range.")
         s_ip_velocity   = ip3.number_input("IP Velocity (24h)",
             min_value=1, max_value=50, value=1, step=1,
-            help="Number of donations from this IP address in the past 24 hours. 3+ is suspicious; 5+ indicates possible card testing.")
-        submitted = st.form_submit_button("Calculate Risk Score →")
+            help="Donations from this IP in 24h. 3+ suspicious; 5+ indicates card testing.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
+        submitted = st.form_submit_button("Calculate Risk Score →", use_container_width=True)
     if submitted:
         amount_mean = meta["amount_mean"]; amount_std = meta["amount_std"]
 
@@ -1171,7 +1267,7 @@ The **threshold slider** in the sidebar moves your operating point along this cu
             banking_boost += 0.35
             banking_rules.append(("🔔", "Chargeback received",
                 "A chargeback was filed on this donation. Combined with high anomaly score, "
-                "this may indicate card fraud or deliberate exploitation of the charity."))
+                "this may indicate card fraud or deliberate exploitation of the donation system."))
         elif s_webhook_event == "payment.declined":
             banking_boost += 0.10
             banking_rules.append(("🔔", "Payment declined by bank",
@@ -1298,8 +1394,8 @@ elif page == "📖  Glossary":
              "The area under this curve (Average Precision) summarises model quality in a single number."),
         ]),
         ("Compliance & Financial Crime Terms", [
-            ("Money Laundering via Charity",
-             "A technique where criminals donate illegally-obtained funds to a legitimate charity to 'clean' the money — obtaining a receipt that makes the funds appear legitimate. Often involves large round-number donations followed by refund requests.",
+            ("Money Laundering via Nonprofit",
+             "A technique where criminals donate illegally-obtained funds to a legitimate nonprofit to 'clean' the money — obtaining a receipt that makes the funds appear legitimate. Often involves large round-number donations followed by refund requests.",
              "A donation of £2,000 followed by a refund request a few days later."),
             ("Structuring",
              "Deliberately splitting or sizing transactions to avoid triggering mandatory financial reporting thresholds. In the UK, this is a criminal offence.",
@@ -1343,10 +1439,10 @@ elif page == "📖  Glossary":
              "A transaction that is reversed after initial authorisation, returning funds to the sender. In a charity context this is suspicious when combined with a large donation — it may indicate funds cycling (donate → get receipt → reverse → repeat with different account).",
              "Reversed donations should always trigger a manual review, regardless of their ML anomaly score."),
             ("Chargeback",
-             "A forced reversal initiated by the cardholder's bank, typically when a cardholder disputes a transaction as unauthorised. For charities, chargebacks on large donations may indicate card fraud — someone used a stolen card to make a donation — or deliberate exploitation of the charity's payment system.",
+             "A forced reversal initiated by the cardholder's bank, typically when a cardholder disputes a transaction as unauthorised. For nonprofits, chargebacks on large donations may indicate card fraud — someone used a stolen card to make a donation, or deliberate exploitation of the organisation's payment system.",
              "A chargeback on a donation that also has a high anomaly score is a strong indicator of card fraud and should prompt a SAR review."),
             ("Card Testing",
-             "A fraud technique where criminals use a charity's donation form to test whether stolen card details are valid, by making a series of small donations. Indicators include: multiple rapid small donations from the same device or IP, many declined payment attempts, or unusual numbers of round-number micro-donations.",
+             "A fraud technique where criminals use a nonprofit's online donation form to test whether stolen card details are valid, by making a series of small donations. Indicators include: multiple rapid small donations from the same device or IP, many declined payment attempts, or unusual numbers of round-number micro-donations.",
              "Ten declined donation attempts of £1 from the same device fingerprint within a minute is a card testing pattern."),
         ]),
         ("Dashboard & Feature Terms", [

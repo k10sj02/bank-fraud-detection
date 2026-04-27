@@ -1,5 +1,5 @@
 """
-prepare.py  —  Syria Campaign · Train & Cache Artifacts
+prepare.py  —  DonorGuard · Train & Cache Artifacts
 
 Run order:
     1. uv run python reshape_dataset.py
@@ -7,7 +7,7 @@ Run order:
     3. uv run python prepare.py              ← this script
     4. uv run streamlit run app.py
 
-Input:  Donations_Syria_Campaign_Labeled.csv
+Input:  Donations_DonorGuard_Labeled.csv
 Output: artifacts/
 """
 
@@ -17,6 +17,12 @@ from pathlib import Path
 
 import joblib
 import numpy as np
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
+    print('WARNING: shap not installed — SHAP artifacts will be skipped.')
 import pandas as pd
 import scipy.stats as stats
 from sklearn.ensemble import IsolationForest, RandomForestClassifier
@@ -33,7 +39,7 @@ warnings.filterwarnings("ignore")
 
 ARTIFACTS    = Path("artifacts")
 RANDOM_STATE = 42
-CSV_PATH     = "Donations_Syria_Campaign_Labeled.csv"
+CSV_PATH     = "Donations_DonorGuard_Labeled.csv"
 
 CAT_ENCODE = [
     "Gender", "Donor_Country", "Donor_Segment", "Donation_Frequency",
@@ -275,7 +281,26 @@ importances = pd.Series(
     rf.feature_importances_, index=MODEL_FEATURES
 ).sort_values(ascending=False)
 
-# ── 8. EDA cache ──────────────────────────────────────────────────────────────
+# ── 8. SHAP explainer ────────────────────────────────────────────────────────
+shap_explainer = None
+shap_df        = None
+if SHAP_AVAILABLE:
+    print('Computing SHAP explainer…')
+    shap_background = X_train.sample(200, random_state=RANDOM_STATE)
+    shap_explainer  = shap.TreeExplainer(rf, shap_background)
+    shap_sample     = X_test.sample(min(500, len(X_test)), random_state=RANDOM_STATE)
+    shap_values_pos = shap_explainer.shap_values(shap_sample, check_additivity=False)
+    # Handle both (n, features) and (n, features, n_classes) shapes
+    if isinstance(shap_values_pos, list):
+        shap_values_pos = shap_values_pos[1]
+    elif shap_values_pos.ndim == 3:
+        shap_values_pos = shap_values_pos[:, :, 1]
+    shap_df = pd.DataFrame(shap_values_pos, columns=MODEL_FEATURES)
+    print(f'  SHAP values computed — shape: {shap_df.shape}')
+else:
+    print("Skipping SHAP — run: uv add 'shap>=0.44.0'")
+
+# ── 9. EDA cache ──────────────────────────────────────────────────────────────
 eda_cols = [
     "Is_Anomalous", "Donation_Amount", "Donor_Lifetime_Value", "Hour", "DayOfWeek",
     "Donor_Country", "Donation_Type", "Campaign_ID", "Campaign_Name",
@@ -289,7 +314,7 @@ eda_cols = [
 ]
 eda_df = df[eda_cols].copy()
 
-# ── 9. Meta / summary stats ───────────────────────────────────────────────────
+# ── 10. Meta / summary stats ───────────────────────────────────────────────────
 summary_stats = {
     "amount_mean":            float(df["Donation_Amount"].mean()),
     "amount_std":             float(df["Donation_Amount"].std()),
@@ -316,18 +341,18 @@ summary_stats = {
         "Isolation Forest":    iso_opt["threshold"],
     },
     "campaigns": [
-        {"id": "SC-2024-EMG", "name": "Syria Emergency Appeal 2024"},
-        {"id": "SC-2024-WIN", "name": "Winter Appeal 2024"},
-        {"id": "SC-2024-EDU", "name": "Education Fund 2024"},
-        {"id": "SC-2024-MED", "name": "Medical Supplies Appeal"},
-        {"id": "SC-2024-REF", "name": "Refugee Support Programme"},
-        {"id": "SC-2023-EMG", "name": "Syria Emergency Appeal 2023"},
-        {"id": "SC-2024-RAM", "name": "Ramadan Appeal 2024"},
-        {"id": "SC-2024-MAT", "name": "Matched Giving December"},
+        {"id": "SC-2024-EMG", "name": "Emergency Relief Fund 2024"},
+        {"id": "SC-2024-WIN", "name": "Winter Giving Campaign 2024"},
+        {"id": "SC-2024-EDU", "name": "Education & Scholarship Fund 2024"},
+        {"id": "SC-2024-MED", "name": "Medical & Humanitarian Aid Appeal"},
+        {"id": "SC-2024-REF", "name": "Refugee & Displacement Support"},
+        {"id": "SC-2023-EMG", "name": "Emergency Relief Fund 2023"},
+        {"id": "SC-2024-RAM", "name": "Ramadan Giving Campaign 2024"},
+        {"id": "SC-2024-MAT", "name": "Year-End Matched Giving"},
     ],
 }
 
-# ── 10. Save ──────────────────────────────────────────────────────────────────
+# ── 11. Save ──────────────────────────────────────────────────────────────────
 ARTIFACTS.mkdir(exist_ok=True)
 print("\nSaving artifacts…")
 joblib.dump(rf,          ARTIFACTS / "rf_model.joblib",    compress=3)
@@ -335,7 +360,10 @@ joblib.dump(lr,          ARTIFACTS / "lr_model.joblib",    compress=3)
 joblib.dump(iso,         ARTIFACTS / "iso_model.joblib",   compress=3)
 joblib.dump(scaler,      ARTIFACTS / "scaler.joblib",      compress=3)
 joblib.dump(encoders,    ARTIFACTS / "encoders.joblib",    compress=3)
-joblib.dump(importances, ARTIFACTS / "importances.joblib", compress=3)
+joblib.dump(importances,    ARTIFACTS / "importances.joblib",  compress=3)
+if shap_explainer is not None:
+    joblib.dump(shap_explainer, ARTIFACTS / "shap_explainer.joblib", compress=3)
+    shap_df.to_parquet(ARTIFACTS / "shap_values.parquet", index=False)
 risk_df.to_parquet(ARTIFACTS / "risk_df.parquet",  index=False)
 eda_df.to_parquet( ARTIFACTS / "eda_cache.parquet", index=False)
 with open(ARTIFACTS / "metrics.json", "w") as f:
