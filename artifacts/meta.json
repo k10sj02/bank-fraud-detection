@@ -4,8 +4,8 @@
   "anomaly_rate": 0.053125,
   "total": 200000,
   "n_anomalous": 10625,
-  "night_rate": 0.06592192192192192,
-  "high_risk_n": 4481,
+  "night_rate": 0.07267267267267268,
+  "high_risk_n": 4470,
   "refund_rate": 0.02857,
   "anon_rate": 0.12043,
   "features": [
@@ -90,46 +90,46 @@
     "Wearable",
     "Biometric"
   ],
-  "ip_mismatch_rate": 0.191945,
-  "vpn_rate": 0.096875,
-  "high_velocity_rate": 0.093685,
+  "ip_mismatch_rate": 0.17512,
+  "vpn_rate": 0.08896,
+  "high_velocity_rate": 0.031285,
   "opt_thresholds": {
-    "Random Forest": 0.7891,
-    "Logistic Regression": 0.4695,
-    "Isolation Forest": 0.553
+    "Random Forest": 0.763,
+    "Logistic Regression": 0.5143,
+    "Isolation Forest": 0.541
   },
   "campaigns": [
     {
       "id": "SC-2024-EMG",
-      "name": "Syria Emergency Appeal 2024"
+      "name": "Emergency Relief Fund 2024"
     },
     {
       "id": "SC-2024-WIN",
-      "name": "Winter Appeal 2024"
+      "name": "Winter Giving Campaign 2024"
     },
     {
       "id": "SC-2024-EDU",
-      "name": "Education Fund 2024"
+      "name": "Education & Scholarship Fund 2024"
     },
     {
       "id": "SC-2024-MED",
-      "name": "Medical Supplies Appeal"
+      "name": "Medical & Humanitarian Aid Appeal"
     },
     {
       "id": "SC-2024-REF",
-      "name": "Refugee Support Programme"
+      "name": "Refugee & Displacement Support"
     },
     {
       "id": "SC-2023-EMG",
-      "name": "Syria Emergency Appeal 2023"
+      "name": "Emergency Relief Fund 2023"
     },
     {
       "id": "SC-2024-RAM",
-      "name": "Ramadan Appeal 2024"
+      "name": "Ramadan Giving Campaign 2024"
     },
     {
       "id": "SC-2024-MAT",
-      "name": "Matched Giving December"
+      "name": "Year-End Matched Giving"
     }
   ]
 }

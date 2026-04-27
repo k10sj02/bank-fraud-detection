@@ -1,68 +1,68 @@
 {
   "Random Forest": {
     "name": "Random Forest",
-    "auc": 0.9024,
-    "ap": 0.5233,
-    "precision": 0.6792,
-    "recall": 0.3228,
-    "f1": 0.4376,
+    "auc": 0.8875,
+    "ap": 0.4735,
+    "precision": 0.6308,
+    "recall": 0.3031,
+    "f1": 0.4094,
     "cm": [
       [
-        37551,
-        324
+        37498,
+        377
       ],
       [
-        1439,
-        686
+        1481,
+        644
       ]
     ],
-    "opt_threshold": 0.7891,
-    "opt_precision": 0.6795,
-    "opt_recall": 0.3233,
-    "opt_fbeta": 0.5568
+    "opt_threshold": 0.763,
+    "opt_precision": 0.6308,
+    "opt_recall": 0.3031,
+    "opt_fbeta": 0.5186
   },
   "Logistic Regression": {
     "name": "Logistic Regression",
-    "auc": 0.9052,
-    "ap": 0.5505,
-    "precision": 0.6898,
-    "recall": 0.3831,
-    "f1": 0.4926,
+    "auc": 0.8913,
+    "ap": 0.5034,
+    "precision": 0.6828,
+    "recall": 0.3252,
+    "f1": 0.4405,
     "cm": [
       [
-        37509,
-        366
+        37554,
+        321
       ],
       [
-        1311,
-        814
+        1434,
+        691
       ]
     ],
-    "opt_threshold": 0.4695,
-    "opt_precision": 0.6901,
-    "opt_recall": 0.3835,
-    "opt_fbeta": 0.595
+    "opt_threshold": 0.5143,
+    "opt_precision": 0.6828,
+    "opt_recall": 0.3252,
+    "opt_fbeta": 0.5597
   },
   "Isolation Forest": {
     "name": "Isolation Forest",
-    "auc": 0.8739,
-    "ap": 0.4007,
-    "precision": 0.499,
-    "recall": 0.3379,
-    "f1": 0.4029,
+    "auc": 0.8462,
+    "ap": 0.3394,
+    "precision": 0.4613,
+    "recall": 0.2889,
+    "f1": 0.3553,
     "cm": [
       [
-        37154,
-        721
+        37158,
+        717
       ],
       [
-        1407,
-        718
+        1511,
+        614
       ]
     ],
-    "opt_threshold": 0.553,
-    "opt_precision": 0.4993,
-    "opt_recall": 0.3379,
-    "opt_fbeta": 0.4558
+    "opt_threshold": 0.541,
+    "opt_precision": 0.4617,
+    "opt_recall": 0.2894,
+    "opt_fbeta": 0.4126
   }
 }
